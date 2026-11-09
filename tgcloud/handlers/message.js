@@ -4,11 +4,12 @@ import { api, db } from 'sdk';
 import { eq, desc, sql } from 'sdk/db';
 import { settings, schedules, users } from '../schema.js';
 import { extractScheduleWithGroq } from '../lib/groq.js';
-import { formatFullSchedule, formatDayLessons, getTodayDayName, escapeHtml } from '../lib/format.js';
+import { formatFullSchedule, formatDayLessons, getTodayDayName, getTomorrowDayName } from '../lib/format.js';
 
 const KEYBOARD = {
   keyboard: [
-    [{ text: "📅 Bugungi darslar" }, { text: "📋 Haftalik jadval" }]
+    [{ text: "📅 Bugungi darslar" }, { text: "🌅 Ertangi darslar" }],
+    [{ text: "📋 Haftalik jadval" }]
   ],
   resize_keyboard: true,
 };
@@ -51,7 +52,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 3. Admin uchun /setkey buyrug'i
+  // 3. Admin uchun maxfiy /setkey buyrug'i
   if (text.startsWith('/setkey')) {
     const parts = text.split(/\s+/);
     if (parts.length >= 2 && parts[1].startsWith('gsk_')) {
@@ -124,7 +125,58 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 5. "Haftalik jadval" tugmasi
+  // 5. "Ertangi darslar" tugmasi
+  if (text === '🌅 Ertangi darslar' || text === '/tomorrow') {
+    try {
+      const last = await db.select()
+        .from(schedules)
+        .where(eq(schedules.chatId, chatId))
+        .orderBy(desc(schedules.id))
+        .limit(1)
+        .get();
+
+      if (!last) {
+        await api.sendMessage({
+          chat_id: chatId,
+          text: "Hali dars jadvali yuklanmagan. Iltimos, jadval rasmini yuboring.",
+          reply_markup: KEYBOARD,
+        });
+        return;
+      }
+
+      const scheduleData = JSON.parse(last.scheduleJson);
+      const tomorrow = getTomorrowDayName();
+      const days = scheduleData.d || scheduleData.days || [];
+      const tomorrowObj = days.find(d => d.day?.toLowerCase() === tomorrow.toLowerCase());
+
+      if (!tomorrowObj || !(tomorrowObj.l || tomorrowObj.lessons)?.length) {
+        await api.sendMessage({
+          chat_id: chatId,
+          text: "Ertaga darslar yo'q.",
+          reply_markup: KEYBOARD,
+        });
+        return;
+      }
+
+      const formatted = formatDayLessons(tomorrowObj, scheduleData.g || scheduleData.group);
+      await api.sendMessage({
+        chat_id: chatId,
+        text: formatted,
+        parse_mode: 'HTML',
+        reply_markup: KEYBOARD,
+      });
+    } catch (e) {
+      console.error('/tomorrow error:', e);
+      await api.sendMessage({
+        chat_id: chatId,
+        text: "Darslarni yuklashda xatolik yuz berdi.",
+        reply_markup: KEYBOARD,
+      });
+    }
+    return;
+  }
+
+  // 6. "Haftalik jadval" tugmasi
   if (text === '📋 Haftalik jadval' || text === '/schedule') {
     try {
       const last = await db.select()
@@ -163,7 +215,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 6. Faol API kalitini olish
+  // 7. Faol API kalitini olish
   let activeGroqKey = null;
   try {
     const dbKeyRow = await db.select().from(settings).where(eq(settings.key, 'groq_api_key')).get();
@@ -174,7 +226,7 @@ export default async function (message, ctx) {
     console.warn("Baza xatosi:", e);
   }
 
-  // 7. Rasm qabul qilinganda
+  // 8. Rasm qabul qilinganda
   let fileIdToProcess = null;
   if (message.photo && message.photo.length > 0) {
     fileIdToProcess = message.photo[message.photo.length - 1].file_id;
@@ -215,7 +267,7 @@ export default async function (message, ctx) {
 
       const groupName = schedule.g || schedule.group || "Noma'lum guruh";
 
-      // Foydalanuvchining eski jadvalini o'chirib, yangisini yozish (to'liq yangilash)
+      // Eski jadvalni o'chirib, yangisini yozish
       try {
         await db.delete(schedules).where(eq(schedules.chatId, chatId)).run();
 
@@ -262,7 +314,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 8. Boshqa matnli xabarlar
+  // 9. Boshqa matnli xabarlar
   await api.sendMessage({
     chat_id: chatId,
     text: "Dars jadvali rasmini yuboring yoki quyidagi tugmalardan foydalaning.",
