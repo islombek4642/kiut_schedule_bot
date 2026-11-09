@@ -4,7 +4,7 @@ import { api, db } from 'sdk';
 import { eq, desc, sql } from 'sdk/db';
 import { settings, schedules, users } from '../schema.js';
 import { extractScheduleWithGroq } from '../lib/groq.js';
-import { formatFullSchedule, formatDayLessons, getTodayDayName } from '../lib/format.js';
+import { formatFullSchedule, formatDayLessons, getTodayDayName, escapeHtml } from '../lib/format.js';
 
 const KEYBOARD = {
   keyboard: [
@@ -17,7 +17,7 @@ export default async function (message, ctx) {
   const chatId = message.chat.id;
   const fromUser = message.from;
 
-  // Foydalanuvchini bazada yangilash
+  // 1. Foydalanuvchini bazada yangilash
   if (fromUser) {
     try {
       await db.insert(users)
@@ -41,7 +41,7 @@ export default async function (message, ctx) {
 
   const text = message.text ? message.text.trim() : '';
 
-  // 1. /start buyrug'i
+  // 2. /start buyrug'i
   if (text === '/start') {
     await api.sendMessage({
       chat_id: chatId,
@@ -51,7 +51,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 2. Admin uchun maxfiy /setkey buyrug'i
+  // 3. Admin uchun /setkey buyrug'i
   if (text.startsWith('/setkey')) {
     const parts = text.split(/\s+/);
     if (parts.length >= 2 && parts[1].startsWith('gsk_')) {
@@ -73,7 +73,7 @@ export default async function (message, ctx) {
     }
   }
 
-  // 3. "Bugungi darslar" tugmasi
+  // 4. "Bugungi darslar" tugmasi
   if (text === '📅 Bugungi darslar' || text === '/today') {
     try {
       const last = await db.select()
@@ -110,7 +110,7 @@ export default async function (message, ctx) {
       await api.sendMessage({
         chat_id: chatId,
         text: formatted,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: KEYBOARD,
       });
     } catch (e) {
@@ -124,7 +124,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 4. "Haftalik jadval" tugmasi
+  // 5. "Haftalik jadval" tugmasi
   if (text === '📋 Haftalik jadval' || text === '/schedule') {
     try {
       const last = await db.select()
@@ -149,7 +149,7 @@ export default async function (message, ctx) {
       await api.sendMessage({
         chat_id: chatId,
         text: formatted,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: KEYBOARD,
       });
     } catch (e) {
@@ -163,7 +163,7 @@ export default async function (message, ctx) {
     return;
   }
 
-  // 5. Faol API kalitini olish
+  // 6. Faol API kalitini olish
   let activeGroqKey = null;
   try {
     const dbKeyRow = await db.select().from(settings).where(eq(settings.key, 'groq_api_key')).get();
@@ -174,7 +174,7 @@ export default async function (message, ctx) {
     console.warn("Baza xatosi:", e);
   }
 
-  // 6. Rasm qabul qilinganda
+  // 7. Rasm qabul qilinganda
   let fileIdToProcess = null;
   if (message.photo && message.photo.length > 0) {
     fileIdToProcess = message.photo[message.photo.length - 1].file_id;
@@ -215,8 +215,10 @@ export default async function (message, ctx) {
 
       const groupName = schedule.g || schedule.group || "Noma'lum guruh";
 
-      // Natijani bazaga saqlash
+      // Foydalanuvchining eski jadvalini o'chirib, yangisini yozish (to'liq yangilash)
       try {
+        await db.delete(schedules).where(eq(schedules.chatId, chatId)).run();
+
         await db.insert(schedules)
           .values({
             chatId: chatId,
@@ -239,7 +241,7 @@ export default async function (message, ctx) {
       await api.sendMessage({
         chat_id: chatId,
         text: fullText,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: KEYBOARD,
       });
 
@@ -255,13 +257,12 @@ export default async function (message, ctx) {
         chat_id: chatId,
         message_id: statusMsg.message_id,
         text: "Rasm sifatli va yorug' olinganini tekshirib, qayta yuboring.",
-        reply_markup: KEYBOARD,
       });
     }
     return;
   }
 
-  // 7. Boshqa matnli xabarlar
+  // 8. Boshqa matnli xabarlar
   await api.sendMessage({
     chat_id: chatId,
     text: "Dars jadvali rasmini yuboring yoki quyidagi tugmalardan foydalaning.",

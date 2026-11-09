@@ -1,26 +1,17 @@
 // tgcloud/endpoints/getStats.js
-// Bazadagi foydalanuvchilar va yuklangan jadvallar sonini tekshirish
-
 import { db } from 'sdk';
 import { schedules, users } from '../schema.js';
 
 export default async function () {
-  const userCount = await db.$count(users);
-  const scheduleCount = await db.$count(schedules);
-  const recentSchedules = await db.select({
-    id: schedules.id,
-    chatId: schedules.chatId,
-    groupName: schedules.groupName,
-    createdAt: schedules.createdAt
-  })
-  .from(schedules)
-  .limit(5)
-  .all();
-
+  const allSchedules = await db.select().from(schedules).all();
   return {
-    userCount,
-    scheduleCount,
-    recentSchedules
+    count: allSchedules.length,
+    rows: allSchedules.map(r => ({
+      id: r.id,
+      chatId: r.chatId,
+      groupName: r.groupName,
+      scheduleJsonLength: r.scheduleJson?.length,
+      scheduleJsonPreview: r.scheduleJson?.substring(0, 150)
+    }))
   };
 }
-
