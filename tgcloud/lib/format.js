@@ -14,7 +14,11 @@ const DAY_UZ = {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function getTodayDayName() {
-  const idx = new Date().getDay();
+  // O'zbekiston vaqti (UTC+5) bo'yicha kunni hisoblash
+  const now = new Date();
+  const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const tashkentDate = new Date(utcMs + (5 * 3600000));
+  const idx = tashkentDate.getDay();
   return DAY_NAMES[idx] || 'Monday';
 }
 
