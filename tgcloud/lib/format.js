@@ -1,7 +1,7 @@
 // tgcloud/lib/format.js
-// Dars jadvalini Telegramda chiroyli matn ko'rinishida formatlash yordamchisi
+// Dars jadvalini toza va chiroyli formatda chiqarish
 
-const DAY_TRANSLATIONS = {
+const DAY_UZ = {
   Monday: 'Dushanba',
   Tuesday: 'Seshanba',
   Wednesday: 'Chorshanba',
@@ -11,55 +11,49 @@ const DAY_TRANSLATIONS = {
   Sunday: 'Yakshanba',
 };
 
-const DAY_INDEX = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function getTodayDayName() {
-  const dayIdx = new Date().getDay();
-  return DAY_INDEX[dayIdx] || 'Monday';
+  const idx = new Date().getDay();
+  return DAY_NAMES[idx] || 'Monday';
 }
 
-export function formatDayLessons(dayObj) {
-  const dayNameEn = dayObj.day || '';
-  const dayNameUz = DAY_TRANSLATIONS[dayNameEn] || dayNameEn;
+export function formatDayLessons(dayObj, group = '') {
+  const dayEn = dayObj.day || '';
+  const dayUz = DAY_UZ[dayEn] || dayEn;
+  const lessons = dayObj.l || dayObj.lessons || [];
 
-  if (!dayObj.lessons || dayObj.lessons.length === 0) {
-    return `📅 *${dayNameUz}:* Darslar yo'q\n`;
+  if (lessons.length === 0) {
+    return `📅 *${dayUz}:* Darslar yo'q`;
   }
 
-  let text = `📅 *${dayNameUz}:*\n`;
-  for (const lesson of dayObj.lessons) {
-    const time = (lesson.start_time && lesson.end_time) 
-      ? `\`${lesson.start_time}-${lesson.end_time}\`` 
-      : (lesson.period ? `${lesson.period}-para` : '');
-    
-    const subject = lesson.subject ? `*${lesson.subject}*` : "Noma'lum fan";
-    const room = lesson.room ? `🏛 ${lesson.room}` : '';
-    const teacher = lesson.teacher ? `👤 ${lesson.teacher}` : '';
-    const type = lesson.type ? `(${lesson.type})` : '';
+  let text = `📅 *${dayUz}*${group ? ` (${group})` : ''}:\n`;
+  for (const item of lessons) {
+    const time = item.t || (item.start_time && item.end_time ? `${item.start_time}-${item.end_time}` : item.period || '');
+    const subject = item.s || item.subject || "Noma'lum fan";
+    const room = item.r || item.room || '';
+    const teacher = item.p || item.teacher || '';
 
-    const details = [room, teacher, type].filter(Boolean).join(' | ');
-    text += `  • ${time} — ${subject}\n`;
-    if (details) {
-      text += `    ${details}\n`;
+    text += `\n⏰ *${time}* — ${subject}`;
+    const meta = [room ? `🏛 ${room}` : '', teacher ? `👤 ${teacher}` : ''].filter(Boolean).join(' | ');
+    if (meta) {
+      text += `\n   ${meta}`;
     }
   }
   return text;
 }
 
-export function formatFullSchedule(schedule) {
-  const group = schedule.group || "Noma'lum guruh";
-  const semester = schedule.semester ? `\nSemestr: ${schedule.semester}` : '';
-  let out = `🎓 *Guruh:* ${group}${semester}\n\n`;
+export function formatFullSchedule(data) {
+  const group = data.g || data.group || "Noma'lum guruh";
+  const days = data.d || data.days || [];
 
-  if (!schedule.days || !Array.isArray(schedule.days) || schedule.days.length === 0) {
-    out += "Jadvalda dars kunlari topilmadi.";
-    return out;
+  if (days.length === 0) {
+    return "Jadval ma'lumotlari topilmadi.";
   }
 
-  for (const d of schedule.days) {
-    out += formatDayLessons(d) + '\n';
+  let out = `🎓 *Guruh:* ${group}\n`;
+  for (const day of days) {
+    out += `\n` + formatDayLessons(day);
   }
-
   return out.trim();
 }
-
