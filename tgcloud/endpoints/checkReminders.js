@@ -105,3 +105,4 @@ export default async function () {
 
   return { ok: true, sentCount, checkedAt: tashkentDate.toISOString() };
 }
+
