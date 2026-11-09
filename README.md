@@ -49,6 +49,18 @@ Botingiz tayyor! Telegramda unga dars jadvali rasmini yuboring va natijani oling
 
 ---
 
+## ⏰ Avtomatik dars eslatmalari (5 daqiqa oldin)
+
+Bot talabalarga dars boshlanishidan **5 daqiqa oldin** avtomatik xabar yuborishi uchun bepul **GitHub Actions Cron** sozlangan:
+
+1. GitHub’da repozitoriyangizga kiring: **Settings** -> **Secrets and variables** -> **Actions**.
+2. **New repository secret** tugmasini bosing:
+   * **Name:** `TGCLOUD_TOKEN`
+   * **Value:** BotFather bergan CLI tokeningiz (`app9030716173:...`)
+3. Bo‘ldi! Har kuni dars soatlarida tizim darsi boshlanishiga 5 daqiqa qolgan talabalarni aniqlab, ularga avtomatik eslatma yuboradi.
+
+---
+
 ## 🛠 Loyiha tuzilishi
 
 ```text

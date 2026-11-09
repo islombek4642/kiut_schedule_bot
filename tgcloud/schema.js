@@ -24,3 +24,10 @@ export const users = table('users', {
   requestCount: integer('request_count').notNull().default(0),
   lastSeen: integer('last_seen', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
+
+export const reminders = table('reminders', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  chatId: integer('chat_id').notNull(),
+  lessonKey: text('lesson_key').notNull(),
+  sentAt: integer('sent_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});

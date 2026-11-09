@@ -1,0 +1,25 @@
+name: KIUT Lesson Reminders Cron
+
+on:
+  schedule:
+    # Dushanbadan Shanbagacha, Toshkent vaqti bilan 07:00 dan 20:00 gacha har 5 daqiqada (UTC 02:00 - 15:00)
+    - cron: '*/5 2-15 * * 1-6'
+  workflow_dispatch: # Qo'lda ham ishga tushirish imkoniyati
+
+jobs:
+  check-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check and send lesson reminders
+        env:
+          TGCLOUD_TOKEN: ${{ secrets.TGCLOUD_TOKEN }}
+        run: |
+          npx tgcloud run endpoints/checkReminders
