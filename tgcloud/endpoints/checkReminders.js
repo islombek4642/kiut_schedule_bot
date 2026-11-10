@@ -4,7 +4,7 @@
 import { api, db } from 'sdk';
 import { eq, and, sql } from 'sdk/db';
 import { schedules, reminders } from '../schema.js';
-import { getTodayDayName, expandAllLessons, escapeHtml } from '../lib/format.js';
+import { getTodayDayName, expandAllLessons, escapeHtml, matchesDayName } from '../lib/format.js';
 
 export default async function () {
   const now = new Date();
@@ -30,7 +30,7 @@ export default async function () {
     }
 
     const days = scheduleData.d || scheduleData.days || [];
-    const todayObj = days.find(d => d.day?.toLowerCase() === todayDay.toLowerCase());
+    const todayObj = days.find(d => matchesDayName(d.day, todayDay));
     if (!todayObj) continue;
 
     // Har bir darsni alohida 50 daqiqalik para va tanaffuslarga ajratamiz
@@ -48,8 +48,8 @@ export default async function () {
       const lessonTotalM = lh * 60 + lm;
       const diff = lessonTotalM - currentTotalM;
 
-      // Dars boshlanishiga 1 dan 6 daqiqagacha qolgan bo'lsa
-      if (diff >= 1 && diff <= 6) {
+      // Dars boshlanishiga 0 dan 10 daqiqagacha qolgan bo'lsa (cron kechikishlarini hisobga olgan holda)
+      if (diff >= 0 && diff <= 10) {
         const subject = lesson.s || lesson.subject || "Noma'lum fan";
         const pNum = lesson.period ? `P${lesson.period}` : startTimeStr;
         const lessonKey = `${dateStr}_${pNum}_${subject}`;
@@ -65,10 +65,11 @@ export default async function () {
         const teacher = (lesson.p || lesson.teacher) ? `👤 ${escapeHtml(lesson.p || lesson.teacher)}` : '';
         const meta = [room, teacher].filter(Boolean).join(' | ');
         const pLabel = lesson.period ? `<i>(${lesson.period}-para)</i>` : '';
+        const timeRemaining = diff > 0 ? `<b>${diff} daqiqadan so'ng</b> boshlanadi` : `<b>hozir boshlanmoqda</b>`;
 
         const messageText = (
           `🔔 <b>Dars eslatmasi!</b>\n` +
-          `Darsingiz <b>${diff} daqiqadan so'ng</b> boshlanadi:\n\n` +
+          `Darsingiz ${timeRemaining}:\n\n` +
           `⏰ <b>${escapeHtml(rawTime)}</b> ${pLabel} — ${escapeHtml(subject)}` +
           (meta ? `\n   ${meta}` : '')
         );

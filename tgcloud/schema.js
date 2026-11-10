@@ -14,6 +14,7 @@ export const schedules = table('schedules', {
   chatId: integer('chat_id').notNull(),
   groupName: text('group_name'),
   scheduleJson: text('schedule_json').notNull(),
+  photoFileId: text('photo_file_id'),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 

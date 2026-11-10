@@ -4,7 +4,9 @@ on:
   schedule:
     # Dushanbadan Shanbagacha, Toshkent vaqti bilan 07:00 dan 20:00 gacha har 5 daqiqada (UTC 02:00 - 15:00)
     - cron: '*/5 2-15 * * 1-6'
-  workflow_dispatch: # Qo'lda ham ishga tushirish imkoniyati
+  workflow_dispatch: # Qo'lda yoki cron-job.org orqali ishga tushirish imkoniyati
+  repository_dispatch: # Tashqi Webhook yoki Cron servislar uchun
+    types: [check-reminders, cron]
 
 jobs:
   check-reminders:

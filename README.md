@@ -49,15 +49,36 @@ Botingiz tayyor! Telegramda unga dars jadvali rasmini yuboring va natijani oling
 
 ---
 
-## ⏰ Avtomatik dars eslatmalari (5 daqiqa oldin)
+## ⏰ Avtomatik dars eslatmalari (5-10 daqiqa oldin)
 
-Bot talabalarga dars boshlanishidan **5 daqiqa oldin** avtomatik xabar yuborishi uchun bepul **GitHub Actions Cron** sozlangan:
+Bot talabalarga dars boshlanishidan oldin avtomatik xabar yuborishi uchun 2 xil usul mavjud:
 
+### 1. Bepul cron-job.org orqali (Eng aniq va tavsiya etiladigan usul)
+GitHub bepul hisoblarida ichki cron 15-40 daqiqagacha kechikishi mumkin. Soniyasigacha aniq ishlashi uchun [cron-job.org](https://cron-job.org) dan foydalanish tavsiya etiladi:
+1. `cron-job.org` konsoliga kiring va **"Создать cron задание"** tugmasini bosing.
+2. **URL:** `https://api.github.com/repos/islombek4642/kiut_schedule_bot/actions/workflows/reminder.yml/dispatches`
+3. **Расписание:** Har 5 daqiqada (`Каждые 5 минут`).
+4. **Метод:** `POST`
+5. **Заголовки (Headers):**
+   * `Accept: application/vnd.github+json`
+   * `User-Agent: cron-job-org`
+   * `Authorization: Bearer <GITHUB_TOKEN>` (GitHub -> Settings -> Developer Settings -> Personal access tokens)
+6. **Тело запроса (Body):** `{"ref": "main"}`
+
+### 2. GitHub Actions ichki Cron orqali
 1. GitHub’da repozitoriyangizga kiring: **Settings** -> **Secrets and variables** -> **Actions**.
 2. **New repository secret** tugmasini bosing:
    * **Name:** `TGCLOUD_TOKEN`
    * **Value:** BotFather bergan CLI tokeningiz (`app9030716173:...`)
-3. Bo‘ldi! Har kuni dars soatlarida tizim darsi boshlanishiga 5 daqiqa qolgan talabalarni aniqlab, ularga avtomatik eslatma yuboradi.
+3. Har kuni dars soatlarida tizim darsi boshlanishiga oz fursat qolgan talabalarni aniqlab, eslatma yuboradi.
+
+---
+
+## 🖼 Avtomatik rasm generatsiyasi (Pure JS)
+
+Botdagi tugmalar bosilganda jadvallar rasm shaklida yetkaziladi:
+* **Haftalik jadval:** Foydalanuvchi yuklagan asl original sifatdagi rasm darhol qaytariladi.
+* **Bugungi va Ertangi darslar:** `tgcloud/lib/image.js` orqali hech qanday tashqi API'larsiz, 100% toza JavaScript-da atigi 8-12 millisekundda zamonaviy chiroyli kartochka (PNG) chiziladi va Telegramga jo'natiladi.
 
 ---
 
@@ -69,13 +90,16 @@ kiut_schedule_bot/
 │   ├── handlers/
 │   │   └── message.js          # Xabarlar, rasmlar va komandalar handleri (/start, /today, /schedule)
 │   ├── endpoints/
+│   │   ├── checkReminders.js   # Dars eslatmalarini tekshiruvchi serverless endpoint
+│   │   ├── getStats.js         # Foydalanuvchilar va jadvallar statistikasi
 │   │   └── setAdminKey.js      # Groq API kalitini SQLite bazasiga xavfsiz yozish
 │   ├── lib/
 │   │   ├── config.js           # Groq modeli sozlamalari (tokenlarsiz)
 │   │   ├── groq.js             # Groq Vision API integratsiyasi va normallashtirish
-│   │   ├── format.js           # Telegramda jadvalni Markdown qilib ko'rsatish
+│   │   ├── format.js           # Jadvalni formatlash va ko'p tilli kunlarni solishtirish
+│   │   ├── image.js            # Pure JS da ms da ishlovchi PNG jadval generatori
 │   │   └── util.js             # Uint8Array -> Base64 konverteri
-│   └── schema.js               # O‘rnatilgan SQLite bazasi (settings, schedules, users)
+│   └── schema.js               # O‘rnatilgan SQLite bazasi (settings, schedules, users, reminders)
 ├── docs/
 │   └── tgcloud-sdk.md          # Telegram Serverless SDK rasmiy qo‘llanmasi
 ├── AGENTS.md                   # AI kod yozuvchilar uchun qo‘llanma

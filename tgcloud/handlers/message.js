@@ -1,10 +1,11 @@
 // tgcloud/handlers/message.js — Telegram 'message' yangilanishlarini qabul qiluvchi handler
 
-import { api, db } from 'sdk';
+import { api, db, InputFile } from 'sdk';
 import { eq, desc, sql } from 'sdk/db';
 import { settings, schedules, users } from '../schema.js';
 import { extractScheduleWithGroq } from '../lib/groq.js';
-import { formatFullSchedule, formatDayLessons, getTodayDayName, getTomorrowDayName } from '../lib/format.js';
+import { formatFullSchedule, formatDayLessons, getTodayDayName, getTomorrowDayName, matchesDayName, escapeHtml } from '../lib/format.js';
+import { generateScheduleImage } from '../lib/image.js';
 
 const KEYBOARD = {
   keyboard: [
@@ -96,7 +97,7 @@ export default async function (message, ctx) {
       const scheduleData = JSON.parse(last.scheduleJson);
       const today = getTodayDayName();
       const days = scheduleData.d || scheduleData.days || [];
-      const todayObj = days.find(d => d.day?.toLowerCase() === today.toLowerCase());
+      const todayObj = days.find(d => matchesDayName(d.day, today));
 
       if (!todayObj || !(todayObj.l || todayObj.lessons)?.length) {
         await api.sendMessage({
@@ -107,13 +108,26 @@ export default async function (message, ctx) {
         return;
       }
 
-      const formatted = formatDayLessons(todayObj, scheduleData.g || scheduleData.group);
-      await api.sendMessage({
-        chat_id: chatId,
-        text: formatted,
-        parse_mode: 'HTML',
-        reply_markup: KEYBOARD,
-      });
+      const groupName = scheduleData.g || scheduleData.group || last.groupName || '';
+      try {
+        const imageBytes = generateScheduleImage(todayObj, groupName, 'Bugungi darslar');
+        await api.sendPhoto({
+          chat_id: chatId,
+          photo: new InputFile(imageBytes, 'today_schedule.png', { type: 'image/png' }),
+          caption: `📅 <b>Bugungi darslar</b>${groupName ? ` — <b>${escapeHtml(groupName)}</b>` : ''}`,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
+      } catch (imgErr) {
+        console.warn('Rasm yaratishda xatolik, matn shaklida yuborilmoqda:', imgErr);
+        const formatted = formatDayLessons(todayObj, groupName);
+        await api.sendMessage({
+          chat_id: chatId,
+          text: formatted,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
+      }
     } catch (e) {
       console.error('/today error:', e);
       await api.sendMessage({
@@ -147,7 +161,7 @@ export default async function (message, ctx) {
       const scheduleData = JSON.parse(last.scheduleJson);
       const tomorrow = getTomorrowDayName();
       const days = scheduleData.d || scheduleData.days || [];
-      const tomorrowObj = days.find(d => d.day?.toLowerCase() === tomorrow.toLowerCase());
+      const tomorrowObj = days.find(d => matchesDayName(d.day, tomorrow));
 
       if (!tomorrowObj || !(tomorrowObj.l || tomorrowObj.lessons)?.length) {
         await api.sendMessage({
@@ -158,13 +172,26 @@ export default async function (message, ctx) {
         return;
       }
 
-      const formatted = formatDayLessons(tomorrowObj, scheduleData.g || scheduleData.group);
-      await api.sendMessage({
-        chat_id: chatId,
-        text: formatted,
-        parse_mode: 'HTML',
-        reply_markup: KEYBOARD,
-      });
+      const groupName = scheduleData.g || scheduleData.group || last.groupName || '';
+      try {
+        const imageBytes = generateScheduleImage(tomorrowObj, groupName, 'Ertangi darslar');
+        await api.sendPhoto({
+          chat_id: chatId,
+          photo: new InputFile(imageBytes, 'tomorrow_schedule.png', { type: 'image/png' }),
+          caption: `🌅 <b>Ertangi darslar</b>${groupName ? ` — <b>${escapeHtml(groupName)}</b>` : ''}`,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
+      } catch (imgErr) {
+        console.warn('Rasm yaratishda xatolik, matn shaklida yuborilmoqda:', imgErr);
+        const formatted = formatDayLessons(tomorrowObj, groupName);
+        await api.sendMessage({
+          chat_id: chatId,
+          text: formatted,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
+      }
     } catch (e) {
       console.error('/tomorrow error:', e);
       await api.sendMessage({
@@ -195,6 +222,20 @@ export default async function (message, ctx) {
         return;
       }
 
+      // Agar yuklangan asl rasm file_id mavjud bo'lsa, to'g'ridan-to'g'ri rasm qilib yuboramiz
+      if (last.photoFileId) {
+        const groupLabel = last.groupName ? `\n🎓 <b>Guruh:</b> ${escapeHtml(last.groupName)}` : '';
+        await api.sendPhoto({
+          chat_id: chatId,
+          photo: last.photoFileId,
+          caption: `📋 <b>To'liq haftalik dars jadvali</b>${groupLabel}`,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
+        return;
+      }
+
+      // Aks holda matn ko'rinishida yuboramiz
       const scheduleData = JSON.parse(last.scheduleJson);
       const formatted = formatFullSchedule(scheduleData);
 
@@ -276,6 +317,7 @@ export default async function (message, ctx) {
             chatId: chatId,
             groupName: groupName,
             scheduleJson: jsonStr,
+            photoFileId: fileIdToProcess,
           })
           .run();
 

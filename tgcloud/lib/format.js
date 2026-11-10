@@ -13,6 +13,24 @@ const DAY_UZ = {
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const DAY_VARIANTS = {
+  Monday: ['monday', 'mon', 'dushanba', 'dush', 'понедельник', 'пн'],
+  Tuesday: ['tuesday', 'tue', 'seshanba', 'sesh', 'вторник', 'вт'],
+  Wednesday: ['wednesday', 'wed', 'chorshanba', 'chor', 'среда', 'ср'],
+  Thursday: ['thursday', 'thu', 'payshanba', 'pay', 'четверг', 'чт'],
+  Friday: ['friday', 'fri', 'juma', 'jum', 'пятница', 'пт'],
+  Saturday: ['saturday', 'sat', 'shanba', 'shan', 'суббота', 'сб'],
+  Sunday: ['sunday', 'sun', 'yakshanba', 'yak', 'воскресенье', 'вс'],
+};
+
+export function matchesDayName(candidate, targetEnglishDay) {
+  if (!candidate || !targetEnglishDay) return false;
+  const c = String(candidate).trim().toLowerCase();
+  const t = String(targetEnglishDay).trim();
+  const variants = DAY_VARIANTS[t] || [t.toLowerCase()];
+  return variants.some(v => c === v || c.startsWith(v) || v.startsWith(c));
+}
+
 // KIUT rasmiy dars parasi va vaqtlari (har biri 50 daqiqa, 10 daqiqa tanaffus)
 export const KIUT_PERIODS = {
   1: { start: '08:00', end: '08:50' },
