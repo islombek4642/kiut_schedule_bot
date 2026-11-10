@@ -1,139 +1,23 @@
 // tgcloud/lib/image.js
-// KIUT rasmiy dars jadvali uslubidagi (oq fon, qora chiziqli jadval)
-// ultra-tezkor (3-8 ms) toza JavaScript PNG generatori
+// KIUT rasmiy dars jadvali — Haqiqiy Times New Roman shriftida,
+// oq fon va qora chiziqli toza jadval generatori (Pure JS, 5-15 ms)
 
-// 1. Ixcham 5x7 pikselli shrift (ASCII 32-126)
-const FONT_5X7 = {
-  ' ': [0,0,0,0,0,0,0],
-  '!': [4,4,4,4,0,0,4],
-  '"': [10,10,10,0,0,0,0],
-  '#': [10,10,31,10,31,10,10],
-  '$': [4,15,20,14,5,30,4],
-  '%': [25,26,4,8,19,25,0],
-  '&': [12,18,20,8,21,18,13],
-  "'": [4,4,2,0,0,0,0],
-  '(': [2,4,8,8,8,4,2],
-  ')': [8,4,2,2,2,4,8],
-  '*': [0,4,21,14,21,4,0],
-  '+': [0,4,4,31,4,4,0],
-  ',': [0,0,0,0,4,4,2],
-  '-': [0,0,0,31,0,0,0],
-  '.': [0,0,0,0,0,6,6],
-  '/': [1,2,4,8,16,0,0],
-  '0': [14,17,19,21,25,17,14],
-  '1': [4,12,4,4,4,4,14],
-  '2': [14,17,1,2,4,8,31],
-  '3': [31,2,4,2,1,17,14],
-  '4': [2,6,10,18,31,2,2],
-  '5': [31,16,30,1,1,17,14],
-  '6': [6,8,16,30,17,17,14],
-  '7': [31,1,2,4,8,8,8],
-  '8': [14,17,17,14,17,17,14],
-  '9': [14,17,17,15,1,2,12],
-  ':': [0,12,12,0,12,12,0],
-  ';': [0,12,12,0,12,4,2],
-  '<': [2,4,8,16,8,4,2],
-  '=': [0,31,0,31,0,0,0],
-  '>': [8,4,2,1,2,4,8],
-  '?': [14,17,1,2,4,0,4],
-  '@': [14,17,1,13,21,21,14],
-  'A': [14,17,17,31,17,17,17],
-  'B': [30,17,17,30,17,17,30],
-  'C': [14,17,16,16,16,17,14],
-  'D': [28,18,17,17,17,18,28],
-  'E': [31,16,16,30,16,16,31],
-  'F': [31,16,16,30,16,16,16],
-  'G': [14,17,16,23,17,17,15],
-  'H': [17,17,17,31,17,17,17],
-  'I': [14,4,4,4,4,4,14],
-  'J': [1,1,1,1,1,17,14],
-  'K': [17,18,20,24,20,18,17],
-  'L': [16,16,16,16,16,16,31],
-  'M': [17,27,21,21,17,17,17],
-  'N': [17,17,25,21,19,17,17],
-  'O': [14,17,17,17,17,17,14],
-  'P': [30,17,17,30,16,16,16],
-  'Q': [14,17,17,17,21,18,13],
-  'R': [30,17,17,30,20,18,17],
-  'S': [14,17,16,14,1,17,14],
-  'T': [31,4,4,4,4,4,4],
-  'U': [17,17,17,17,17,17,14],
-  'V': [17,17,17,17,17,10,4],
-  'W': [17,17,17,21,21,27,17],
-  'X': [17,17,10,4,10,17,17],
-  'Y': [17,17,17,10,4,4,4],
-  'Z': [31,1,2,4,8,16,31],
-  '[': [14,8,8,8,8,8,14],
-  '\\': [16,8,4,2,1,0,0],
-  ']': [14,2,2,2,2,2,14],
-  '^': [4,10,17,0,0,0,0],
-  '_': [0,0,0,0,0,0,31],
-  '`': [8,4,2,0,0,0,0],
-  'a': [0,0,14,1,15,17,15],
-  'b': [16,16,22,25,17,17,30],
-  'c': [0,0,14,17,16,17,14],
-  'd': [1,1,13,19,17,17,15],
-  'e': [0,0,14,17,31,16,14],
-  'f': [6,9,8,28,8,8,8],
-  'g': [0,15,17,17,15,1,14],
-  'h': [16,16,22,25,17,17,17],
-  'i': [4,0,12,4,4,4,14],
-  'j': [2,0,6,2,2,18,12],
-  'k': [16,16,18,20,24,20,18],
-  'l': [12,4,4,4,4,4,14],
-  'm': [0,0,26,21,21,17,17],
-  'n': [0,0,22,25,17,17,17],
-  'o': [0,0,14,17,17,17,14],
-  'p': [0,0,30,17,30,16,16],
-  'q': [0,0,13,19,15,1,1],
-  'r': [0,0,22,25,16,16,16],
-  's': [0,0,15,16,14,1,30],
-  't': [8,8,28,8,8,9,6],
-  'u': [0,0,17,17,17,19,13],
-  'v': [0,0,17,17,17,10,4],
-  'w': [0,0,17,17,21,21,10],
-  'x': [0,0,17,10,4,10,17],
-  'y': [0,0,17,17,15,1,14],
-  'z': [0,0,31,2,4,8,31],
-  '{': [2,4,4,8,4,4,2],
-  '|': [4,4,4,4,4,4,4],
-  '}': [8,4,4,2,4,4,8],
-  '~': [0,8,21,2,0,0,0],
-};
+import { TIMES_FONT } from './times_font.js';
 
-const CYRILLIC_MAP = {
-  'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'J','З':'Z',
-  'И':'I','Й':'Y','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R',
-  'С':'S','Т':'T','У':'U','Ф':'F','Х':'X','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Sh',
-  'Ъ':"'",'Ы':'I','Ь':"'",'Э':'E','Ю':'Yu','Я':'Ya','а':'a','б':'b','в':'v',
-  'г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z','и':'i','й':'y','к':'k',
-  'л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u',
-  'ф':'f','х':'x','ц':'ts','ч':'ch','ш':'sh','щ':'sh','ъ':"'",'ы':'i','ь':"'",
-  'э':'e','ю':'yu','я':'ya','Ў':'O‘','ў':'o‘','Қ':'Q','қ':'q','Ғ':'G‘','ғ':'g‘',
-  'Ҳ':'H','ҳ':'h'
-};
-
-function normalizeText(str) {
-  if (!str) return '';
-  let out = '';
-  for (const ch of String(str)) {
-    if (CYRILLIC_MAP[ch]) out += CYRILLIC_MAP[ch];
-    else if (ch === '‘' || ch === '’' || ch === '`') out += "'";
-    else out += ch;
-  }
-  return out;
-}
-
-// 2. 4 rangli oddiy oq-qora palitra:
-// 0: Oq fon (#ffffff)
-// 1: Qora chiziq va asosiy matn (#000000)
-// 2: Och kulrang katak sarlavhasi (#f1f5f9)
-// 3: To'q kulrang ikkinchi darajali matn (#475569)
+// 6 rangli palitra:
+// 0: Sof oq fon (#ffffff)
+// 1: Qora matn va to'r chiziqlari (#000000)
+// 2: Qoramtir kulrang — Times New Roman silliqlash (Anti-aliasing) (#555555)
+// 3: Och kulrang — Times New Roman silliqlash (#b4b4b4)
+// 4: Jadval sarlavhasi foni (#f8fafc)
+// 5: Yordamchi matn kulrangi (#64748b)
 const PALETTE = new Uint8Array([
-  255, 255, 255, // 0: Oq (#ffffff)
-  0, 0, 0,       // 1: Qora (#000000)
-  241, 245, 249, // 2: Och kulrang (#f1f5f9)
-  71, 85, 105    // 3: To'q kulrang (#475569)
+  255, 255, 255, // 0: Oq
+  0, 0, 0,       // 1: Qora
+  85, 85, 85,    // 2: Qoramtir kulrang
+  180, 180, 180, // 3: Och kulrang
+  248, 250, 252, // 4: Sarlavha foni
+  100, 116, 139  // 5: Yordamchi kulrang
 ]);
 
 function setPixel(data, width, height, x, y, colorIdx) {
@@ -172,37 +56,62 @@ function drawCell(data, width, height, x, y, w, h, bgIdx = 0, borderIdx = 1) {
   drawLineV(data, width, height, x + w - 1, y, h, borderIdx);
 }
 
-function drawText(data, width, height, text, startX, startY, colorIdx = 1, scale = 1) {
-  const normalized = normalizeText(text);
+// Times New Roman shriftida matn yozish (Anti-aliased)
+function measureTextWidth(text, scale = 1) {
+  let w = 0;
+  for (const ch of String(text || '')) {
+    const glyph = TIMES_FONT[ch] || TIMES_FONT['?'] || TIMES_FONT[' '];
+    const gw = glyph ? (glyph.w || 5) : 5;
+    w += (gw + 1) * scale;
+  }
+  return w;
+}
+
+function drawText(data, width, height, text, startX, startY, scale = 1, forceColor = null) {
   let cursorX = startX;
-  for (let i = 0; i < normalized.length; i++) {
-    const ch = normalized[i];
-    const glyph = FONT_5X7[ch] || FONT_5X7['?'] || FONT_5X7[' '];
-    for (let row = 0; row < 7; row++) {
-      const bits = glyph[row];
-      for (let col = 0; col < 5; col++) {
-        if ((bits & (16 >> col)) !== 0) {
+  const str = String(text || '');
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    const glyph = TIMES_FONT[ch] || TIMES_FONT['?'] || TIMES_FONT[' '];
+    if (!glyph) {
+      cursorX += 6 * scale;
+      continue;
+    }
+
+    const rows = glyph.rows || [];
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      for (let c = 0; c < row.length; c++) {
+        const val = row[c];
+        if (val === 0) continue; // Shaffof fon
+
+        // val: 1 = Qora, 2 = Qoramtir kulrang, 3 = Och kulrang
+        const colorIdx = forceColor != null ? forceColor : val;
+
+        if (scale === 1) {
+          setPixel(data, width, height, cursorX + c, startY + r, colorIdx);
+        } else {
           for (let sy = 0; sy < scale; sy++) {
             for (let sx = 0; sx < scale; sx++) {
-              setPixel(data, width, height, cursorX + col * scale + sx, startY + row * scale + sy, colorIdx);
+              setPixel(data, width, height, cursorX + c * scale + sx, startY + r * scale + sy, colorIdx);
             }
           }
         }
       }
     }
-    cursorX += 6 * scale;
+    cursorX += (glyph.w + 1) * scale;
   }
   return cursorX;
 }
 
-function drawTextCenter(data, width, height, text, centerX, startY, colorIdx = 1, scale = 1) {
-  const normalized = normalizeText(text);
-  const textWidth = normalized.length * 6 * scale;
-  const startX = Math.round(centerX - textWidth / 2);
-  return drawText(data, width, height, normalized, startX, startY, colorIdx, scale);
+function drawTextCenter(data, width, height, text, centerX, startY, scale = 1, forceColor = null) {
+  const tw = measureTextWidth(text, scale);
+  const startX = Math.round(centerX - tw / 2);
+  return drawText(data, width, height, text, startX, startY, scale, forceColor);
 }
 
-// 3. Ultra-tezkor Indexed-color PNG kodlovchisi
+// Ultra-tezkor Indexed-color PNG kodlovchisi
 function makeCrcTable() {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -307,37 +216,33 @@ function encodeIndexedPNG(w, h, pixelIndices, paletteRGB) {
   return png;
 }
 
-// 4. KUNLIK dars jadvali — Namunadagidek oq fonda toza jadval shaklida
+// Asosiy dars jadvali tasvir generatori (Times New Roman shriftida, oq fonda)
 export function generateScheduleImage(dayObj, groupName = '', titleText = 'DARSLAR JADVALI') {
   const rawLessons = dayObj?.l || dayObj?.lessons || [];
-  const width = 800;
+  const width = 840;
   const tableLeft = 20;
-  const tableWidth = width - tableLeft * 2; // 760px
+  const tableWidth = width - tableLeft * 2; // 800px
 
   const headerH = 75;
-  const thH = 34; // Table Header balandligi
-  const rowH = 62; // Har bir dars qatori balandligi
+  const thH = 36; // Table Header balandligi
+  const rowH = 64; // Har bir dars qatori balandligi
   const count = Math.max(rawLessons.length, 1);
   const height = headerH + thH + (count * rowH) + 35;
 
-  const pixels = new Uint8Array(width * height); // default 0: Oq fon
+  const pixels = new Uint8Array(width * height); // default 0: Sof oq fon
 
-  // 1. Sarlavha: Namunadagidek guruh kodi markazda katta qora shriftda
+  // 1. Sarlavha: Times New Roman shriftida katta guruh kodi markazda
   const displayGroup = groupName || "Guruh ko'rsatilmagan";
-  drawTextCenter(pixels, width, height, displayGroup, width / 2, 18, 1, 3); // 3x katta qora yozuv
+  drawTextCenter(pixels, width, height, displayGroup, width / 2, 16, 2); // 2x Times New Roman
 
   const dayName = dayObj?.day || '';
   const subTitle = `KIUT dars jadvali  |  ${dayName}  |  ${titleText}`;
-  drawTextCenter(pixels, width, height, subTitle, width / 2, 48, 3, 1);
+  drawTextCenter(pixels, width, height, subTitle, width / 2, 48, 1, 5); // 1x Times New Roman (kulrang)
 
   // 2. Jadval ustunlari:
-  // Col 0: Para & Vaqt (150px)
-  // Col 1: Fan nomi (280px)
-  // Col 2: O'qituvchi (190px)
-  // Col 3: Xona (140px)
   const cols = [
     { title: 'Para / Vaqt', w: 150 },
-    { title: 'Fan nomi', w: 280 },
+    { title: 'Fan nomi', w: 320 },
     { title: "O'qituvchi", w: 190 },
     { title: 'Xona', w: 140 }
   ];
@@ -345,8 +250,8 @@ export function generateScheduleImage(dayObj, groupName = '', titleText = 'DARSL
   // Sarlavha qatori (Table Header)
   let curX = tableLeft;
   for (const col of cols) {
-    drawCell(pixels, width, height, curX, headerH, col.w, thH, 2, 1); // 2: och kulrang fon
-    drawTextCenter(pixels, width, height, col.title, curX + col.w / 2, headerH + 12, 1, 1);
+    drawCell(pixels, width, height, curX, headerH, col.w, thH, 4, 1); // 4: och fon, 1: qora border
+    drawTextCenter(pixels, width, height, col.title, curX + col.w / 2, headerH + 9, 1);
     curX += col.w;
   }
 
@@ -354,7 +259,7 @@ export function generateScheduleImage(dayObj, groupName = '', titleText = 'DARSL
   let curY = headerH + thH;
   if (rawLessons.length === 0) {
     drawCell(pixels, width, height, tableLeft, curY, tableWidth, rowH, 0, 1);
-    drawTextCenter(pixels, width, height, "Bugun darslar rejalashtirilmagan.", width / 2, curY + 24, 1, 2);
+    drawTextCenter(pixels, width, height, "Bugun darslar rejalashtirilmagan.", width / 2, curY + 22, 1);
   } else {
     for (let i = 0; i < rawLessons.length; i++) {
       const item = rawLessons[i];
@@ -362,38 +267,38 @@ export function generateScheduleImage(dayObj, groupName = '', titleText = 'DARSL
       const pNum = item.period ? `${item.period}` : `${i + 1}`;
       const timeStr = item.t || (item.start_time && item.end_time ? `${item.start_time}-${item.end_time}` : '');
 
-      // Col 0: Para va Vaqt (Namunadagidek katta raqam va ostida vaqt)
+      // Col 0: Para va Vaqt (Katta para raqami va ostida vaqt)
       drawCell(pixels, width, height, cx, curY, cols[0].w, rowH, 0, 1);
-      drawTextCenter(pixels, width, height, pNum, cx + cols[0].w / 2, curY + 12, 1, 3); // 3x katta para raqami
+      drawTextCenter(pixels, width, height, `${pNum}-para`, cx + cols[0].w / 2, curY + 12, 1);
       if (timeStr) {
-        drawTextCenter(pixels, width, height, timeStr, cx + cols[0].w / 2, curY + 40, 3, 1);
+        drawTextCenter(pixels, width, height, timeStr, cx + cols[0].w / 2, curY + 36, 1, 5);
       }
       cx += cols[0].w;
 
       // Col 1: Fan nomi
       const subject = item.s || item.subject || "Noma'lum fan";
       drawCell(pixels, width, height, cx, curY, cols[1].w, rowH, 0, 1);
-      drawText(pixels, width, height, subject, cx + 12, curY + 24, 1, 1);
+      drawText(pixels, width, height, subject, cx + 12, curY + 22, 1);
       cx += cols[1].w;
 
       // Col 2: O'qituvchi
       const teacher = item.p || item.teacher || "—";
       drawCell(pixels, width, height, cx, curY, cols[2].w, rowH, 0, 1);
-      drawText(pixels, width, height, teacher, cx + 12, curY + 24, 1, 1);
+      drawText(pixels, width, height, teacher, cx + 12, curY + 22, 1);
       cx += cols[2].w;
 
       // Col 3: Xona
       const room = item.r || item.room || "—";
       drawCell(pixels, width, height, cx, curY, cols[3].w, rowH, 0, 1);
-      drawText(pixels, width, height, room, cx + 12, curY + 24, 1, 1);
+      drawText(pixels, width, height, room, cx + 12, curY + 22, 1);
       cx += cols[3].w;
 
       curY += rowH;
     }
   }
 
-  // Footer: burchakda rasmiy yozuv
-  drawText(pixels, width, height, 'KIUT Schedule Bot', tableLeft, curY + 12, 3, 1);
+  // Footer: Times New Roman yozuv
+  drawText(pixels, width, height, 'KIUT Schedule Bot', tableLeft, curY + 10, 1, 5);
 
   return encodeIndexedPNG(width, height, pixels, PALETTE);
 }
