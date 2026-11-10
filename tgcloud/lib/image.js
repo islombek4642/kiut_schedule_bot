@@ -1,9 +1,8 @@
 // tgcloud/lib/image.js
-// Hech qanday tashqi API'larsiz, 100% toza JavaScript (V8 isolate) da
-// dars jadvali kartochkalarini bir necha millisekundda (8-15 ms) PNG rasmiga aylantiruvchi modul
+// KIUT rasmiy dars jadvali uslubidagi (oq fon, qora chiziqli jadval)
+// ultra-tezkor (3-8 ms) toza JavaScript PNG generatori
 
-// 1. Shrift piksellari (ASCII 32 dan 126 gacha, ixcham bitmask)
-// Har bir belgi uchun 7 qator piksellar (har bir qator 5 bit)
+// 1. Ixcham 5x7 pikselli shrift (ASCII 32-126)
 const FONT_5X7 = {
   ' ': [0,0,0,0,0,0,0],
   '!': [4,4,4,4,0,0,4],
@@ -102,7 +101,6 @@ const FONT_5X7 = {
   '~': [0,8,21,2,0,0,0],
 };
 
-// Kirill harflarini lotinga o'giruvchi xarita (shriftda begona belgilar chiqmasligi uchun)
 const CYRILLIC_MAP = {
   'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'J','З':'Z',
   'И':'I','Й':'Y','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R',
@@ -119,38 +117,25 @@ function normalizeText(str) {
   if (!str) return '';
   let out = '';
   for (const ch of String(str)) {
-    if (CYRILLIC_MAP[ch]) {
-      out += CYRILLIC_MAP[ch];
-    } else if (ch === '‘' || ch === '’' || ch === '`') {
-      out += "'";
-    } else {
-      out += ch;
-    }
+    if (CYRILLIC_MAP[ch]) out += CYRILLIC_MAP[ch];
+    else if (ch === '‘' || ch === '’' || ch === '`') out += "'";
+    else out += ch;
   }
   return out;
 }
 
-// 2. 16 rangli ultra-ixcham palitra (Indexed PNG uchun)
+// 2. 4 rangli oddiy oq-qora palitra:
+// 0: Oq fon (#ffffff)
+// 1: Qora chiziq va asosiy matn (#000000)
+// 2: Och kulrang katak sarlavhasi (#f1f5f9)
+// 3: To'q kulrang ikkinchi darajali matn (#475569)
 const PALETTE = new Uint8Array([
-  15, 23, 42,    // 0: Asosiy fon (Dark Slate #0f172a)
-  30, 41, 59,    // 1: Karta foni (#1e293b)
-  51, 65, 85,    // 2: Karta chegarasi (#334155)
-  56, 189, 248,  // 3: Yorqin ko'k (Aksent #38bdf8)
-  14, 116, 144,  // 4: Qoramtir ko'k nishon (#0e7490)
-  71, 85, 105,   // 5: Kulrang nishon (#475569)
-  248, 250, 252, // 6: Oq matn (#f8fafc)
-  148, 163, 184, // 7: Kulrang ikkinchi darajali matn (#94a3b8)
-  240, 253, 250, // 8: Och firuza matn (#f0fdfa)
-  226, 232, 240, // 9: Och kulrang (#e2e8f0)
-  16, 185, 129,  // 10: Yashil nishon (#10b981)
-  239, 68, 68,   // 11: Qizil nishon (#ef4444)
-  245, 158, 11,  // 12: Sariq nishon (#f59e0b)
-  0, 0, 0,       // 13: Qora
-  255, 255, 255, // 14: Sof oq
-  100, 116, 139  // 15: Chiziqlar (#64748b)
+  255, 255, 255, // 0: Oq (#ffffff)
+  0, 0, 0,       // 1: Qora (#000000)
+  241, 245, 249, // 2: Och kulrang (#f1f5f9)
+  71, 85, 105    // 3: To'q kulrang (#475569)
 ]);
 
-// 3. Piksellarni chizish yordamchilari
 function setPixel(data, width, height, x, y, colorIdx) {
   if (x < 0 || x >= width || y < 0 || y >= height) return;
   data[y * width + x] = colorIdx;
@@ -167,26 +152,32 @@ function fillRect(data, width, height, x, y, w, h, colorIdx) {
   }
 }
 
-function drawCard(data, width, height, x, y, w, h, bgColorIdx, borderColorIdx) {
-  fillRect(data, width, height, x, y, w, h, bgColorIdx);
-  for (let px = x; px < x + w; px++) {
-    setPixel(data, width, height, px, y, borderColorIdx);
-    setPixel(data, width, height, px, y + h - 1, borderColorIdx);
-  }
-  for (let py = y; py < y + h; py++) {
-    setPixel(data, width, height, x, py, borderColorIdx);
-    setPixel(data, width, height, x + w - 1, py, borderColorIdx);
+function drawLineH(data, width, height, x, y, len, colorIdx = 1) {
+  for (let px = x; px < Math.min(x + len, width); px++) {
+    setPixel(data, width, height, px, y, colorIdx);
   }
 }
 
-function drawText(data, width, height, text, startX, startY, colorIdx, scale = 1) {
+function drawLineV(data, width, height, x, y, len, colorIdx = 1) {
+  for (let py = y; py < Math.min(y + len, height); py++) {
+    setPixel(data, width, height, x, py, colorIdx);
+  }
+}
+
+function drawCell(data, width, height, x, y, w, h, bgIdx = 0, borderIdx = 1) {
+  fillRect(data, width, height, x, y, w, h, bgIdx);
+  drawLineH(data, width, height, x, y, w, borderIdx);
+  drawLineH(data, width, height, x, y + h - 1, w, borderIdx);
+  drawLineV(data, width, height, x, y, h, borderIdx);
+  drawLineV(data, width, height, x + w - 1, y, h, borderIdx);
+}
+
+function drawText(data, width, height, text, startX, startY, colorIdx = 1, scale = 1) {
   const normalized = normalizeText(text);
   let cursorX = startX;
-
   for (let i = 0; i < normalized.length; i++) {
     const ch = normalized[i];
     const glyph = FONT_5X7[ch] || FONT_5X7['?'] || FONT_5X7[' '];
-
     for (let row = 0; row < 7; row++) {
       const bits = glyph[row];
       for (let col = 0; col < 5; col++) {
@@ -199,12 +190,19 @@ function drawText(data, width, height, text, startX, startY, colorIdx, scale = 1
         }
       }
     }
-    cursorX += 6 * scale; // Harf kengligi (5) + bo'sh joy (1)
+    cursorX += 6 * scale;
   }
   return cursorX;
 }
 
-// 4. Pure JS Indexed-color PNG kodlovchisi (8-10 ms da ishlaydi)
+function drawTextCenter(data, width, height, text, centerX, startY, colorIdx = 1, scale = 1) {
+  const normalized = normalizeText(text);
+  const textWidth = normalized.length * 6 * scale;
+  const startX = Math.round(centerX - textWidth / 2);
+  return drawText(data, width, height, normalized, startX, startY, colorIdx, scale);
+}
+
+// 3. Ultra-tezkor Indexed-color PNG kodlovchisi
 function makeCrcTable() {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -235,7 +233,7 @@ function encodeIndexedPNG(w, h, pixelIndices, paletteRGB) {
   const rowLen = 1 + w;
   const rawData = new Uint8Array(rowLen * h);
   for (let y = 0; y < h; y++) {
-    rawData[y * rowLen] = 0; // Filter turi 0 (None)
+    rawData[y * rowLen] = 0;
     rawData.set(pixelIndices.subarray(y * w, (y + 1) * w), y * rowLen + 1);
   }
 
@@ -297,8 +295,8 @@ function encodeIndexedPNG(w, h, pixelIndices, paletteRGB) {
   const ihdr = new Uint8Array(13);
   ihdr[0] = (w >> 24) & 0xff; ihdr[1] = (w >> 16) & 0xff; ihdr[2] = (w >> 8) & 0xff; ihdr[3] = w & 0xff;
   ihdr[4] = (h >> 24) & 0xff; ihdr[5] = (h >> 16) & 0xff; ihdr[6] = (h >> 8) & 0xff; ihdr[7] = h & 0xff;
-  ihdr[8] = 8; // 8 bit
-  ihdr[9] = 3; // Color type: 3 (Indexed Palette)
+  ihdr[8] = 8;
+  ihdr[9] = 3; // Indexed color
   ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
 
   writeChunk('IHDR', ihdr);
@@ -309,64 +307,93 @@ function encodeIndexedPNG(w, h, pixelIndices, paletteRGB) {
   return png;
 }
 
-// 5. Asosiy dars jadvali kartochkasi rasm generatori
+// 4. KUNLIK dars jadvali — Namunadagidek oq fonda toza jadval shaklida
 export function generateScheduleImage(dayObj, groupName = '', titleText = 'DARSLAR JADVALI') {
   const rawLessons = dayObj?.l || dayObj?.lessons || [];
-  // Kenglik va balandlikni darslar soniga qarab dinamik hisoblaymiz
-  const width = 680;
-  const lessonHeight = 74;
-  const padding = 20;
-  const headerHeight = 70;
+  const width = 800;
+  const tableLeft = 20;
+  const tableWidth = width - tableLeft * 2; // 760px
+
+  const headerH = 75;
+  const thH = 34; // Table Header balandligi
+  const rowH = 62; // Har bir dars qatori balandligi
   const count = Math.max(rawLessons.length, 1);
-  const height = headerHeight + (count * lessonHeight) + (count * 10) + padding * 2;
+  const height = headerH + thH + (count * rowH) + 35;
 
-  const pixels = new Uint8Array(width * height); // default 0: Fon rangi
+  const pixels = new Uint8Array(width * height); // default 0: Oq fon
 
-  // Sarlavha kartochkasi
-  drawCard(pixels, width, height, padding, padding, width - padding * 2, 60, 1, 2);
-  drawText(pixels, width, height, titleText.toUpperCase(), padding + 15, padding + 12, 3, 2); // Katta ko'k sarlavha
+  // 1. Sarlavha: Namunadagidek guruh kodi markazda katta qora shriftda
+  const displayGroup = groupName || "Guruh ko'rsatilmagan";
+  drawTextCenter(pixels, width, height, displayGroup, width / 2, 18, 1, 3); // 3x katta qora yozuv
 
   const dayName = dayObj?.day || '';
-  const subTitle = `Guruh: ${groupName || "Noma'lum"}  |  Kun: ${dayName}`;
-  drawText(pixels, width, height, subTitle, padding + 15, padding + 38, 7, 1);
+  const subTitle = `KIUT dars jadvali  |  ${dayName}  |  ${titleText}`;
+  drawTextCenter(pixels, width, height, subTitle, width / 2, 48, 3, 1);
 
+  // 2. Jadval ustunlari:
+  // Col 0: Para & Vaqt (150px)
+  // Col 1: Fan nomi (280px)
+  // Col 2: O'qituvchi (190px)
+  // Col 3: Xona (140px)
+  const cols = [
+    { title: 'Para / Vaqt', w: 150 },
+    { title: 'Fan nomi', w: 280 },
+    { title: "O'qituvchi", w: 190 },
+    { title: 'Xona', w: 140 }
+  ];
+
+  // Sarlavha qatori (Table Header)
+  let curX = tableLeft;
+  for (const col of cols) {
+    drawCell(pixels, width, height, curX, headerH, col.w, thH, 2, 1); // 2: och kulrang fon
+    drawTextCenter(pixels, width, height, col.title, curX + col.w / 2, headerH + 12, 1, 1);
+    curX += col.w;
+  }
+
+  // Darslar qatorlari
+  let curY = headerH + thH;
   if (rawLessons.length === 0) {
-    // Darslar yo'q bo'lsa
-    drawCard(pixels, width, height, padding, padding + 75, width - padding * 2, 60, 1, 2);
-    drawText(pixels, width, height, "Bugun darslar rejalashtirilmagan.", padding + 20, padding + 98, 6, 2);
+    drawCell(pixels, width, height, tableLeft, curY, tableWidth, rowH, 0, 1);
+    drawTextCenter(pixels, width, height, "Bugun darslar rejalashtirilmagan.", width / 2, curY + 24, 1, 2);
   } else {
-    let curY = padding + 75;
-    for (const item of rawLessons) {
-      drawCard(pixels, width, height, padding, curY, width - padding * 2, lessonHeight, 1, 2);
+    for (let i = 0; i < rawLessons.length; i++) {
+      const item = rawLessons[i];
+      let cx = tableLeft;
+      const pNum = item.period ? `${item.period}` : `${i + 1}`;
+      const timeStr = item.t || (item.start_time && item.end_time ? `${item.start_time}-${item.end_time}` : '');
 
-      const timeStr = item.t || (item.start_time && item.end_time ? `${item.start_time}-${item.end_time}` : 'Vaqtsiz');
-      const pLabel = item.period ? `${item.period}-para` : 'Para';
-
-      // 1. Vaqt nishoni (Badge)
-      fillRect(pixels, width, height, padding + 12, curY + 10, 130, 20, 4);
-      drawText(pixels, width, height, timeStr, padding + 18, curY + 15, 8, 1);
-
-      // 2. Para nishoni
-      fillRect(pixels, width, height, padding + 150, curY + 10, 65, 20, 5);
-      drawText(pixels, width, height, pLabel, padding + 156, curY + 15, 9, 1);
-
-      // 3. Xona va O'qituvchi ma'lumotlari
-      const room = item.r || item.room || '';
-      const teacher = item.p || item.teacher || '';
-      const meta = [room ? `Xona: ${room}` : '', teacher ? `Ustoz: ${teacher}` : ''].filter(Boolean).join('  |  ');
-      if (meta) {
-        drawText(pixels, width, height, meta, padding + 230, curY + 15, 7, 1);
+      // Col 0: Para va Vaqt (Namunadagidek katta raqam va ostida vaqt)
+      drawCell(pixels, width, height, cx, curY, cols[0].w, rowH, 0, 1);
+      drawTextCenter(pixels, width, height, pNum, cx + cols[0].w / 2, curY + 12, 1, 3); // 3x katta para raqami
+      if (timeStr) {
+        drawTextCenter(pixels, width, height, timeStr, cx + cols[0].w / 2, curY + 40, 3, 1);
       }
+      cx += cols[0].w;
 
-      // 4. Fan nomi (Katta oq yozuvda)
+      // Col 1: Fan nomi
       const subject = item.s || item.subject || "Noma'lum fan";
-      drawText(pixels, width, height, subject, padding + 14, curY + 40, 6, 2);
+      drawCell(pixels, width, height, cx, curY, cols[1].w, rowH, 0, 1);
+      drawText(pixels, width, height, subject, cx + 12, curY + 24, 1, 1);
+      cx += cols[1].w;
 
-      curY += lessonHeight + 10;
+      // Col 2: O'qituvchi
+      const teacher = item.p || item.teacher || "—";
+      drawCell(pixels, width, height, cx, curY, cols[2].w, rowH, 0, 1);
+      drawText(pixels, width, height, teacher, cx + 12, curY + 24, 1, 1);
+      cx += cols[2].w;
+
+      // Col 3: Xona
+      const room = item.r || item.room || "—";
+      drawCell(pixels, width, height, cx, curY, cols[3].w, rowH, 0, 1);
+      drawText(pixels, width, height, room, cx + 12, curY + 24, 1, 1);
+      cx += cols[3].w;
+
+      curY += rowH;
     }
   }
 
-  // Millisekundlarda PNG qaytarish
+  // Footer: burchakda rasmiy yozuv
+  drawText(pixels, width, height, 'KIUT Schedule Bot', tableLeft, curY + 12, 3, 1);
+
   return encodeIndexedPNG(width, height, pixels, PALETTE);
 }
-
