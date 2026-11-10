@@ -1,0 +1,35 @@
+name: Deploy Bot to Telegram Cloud
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tgcloud/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy modules to Telegram Cloud
+        env:
+          TGCLOUD_TOKEN: ${{ secrets.TGCLOUD_TOKEN }}
+        run: npx @tgcloud/cli push --force
+
+      - name: Apply database migrations
+        env:
+          TGCLOUD_TOKEN: ${{ secrets.TGCLOUD_TOKEN }}
+        run: npx @tgcloud/cli migrate --yes
