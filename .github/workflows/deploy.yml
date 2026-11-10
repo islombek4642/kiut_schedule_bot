@@ -3,10 +3,6 @@ name: Deploy Bot to Telegram Cloud
 on:
   push:
     branches: [main]
-    paths:
-      - 'tgcloud/**'
-      - 'package.json'
-      - 'package-lock.json'
   workflow_dispatch:
 
 jobs:
