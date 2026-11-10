@@ -5,7 +5,7 @@ import { eq, desc, sql } from 'sdk/db';
 import { settings, schedules, users } from '../schema.js';
 import { extractScheduleWithGroq } from '../lib/groq.js';
 import { formatFullSchedule, formatDayLessons, getTodayDayName, getTomorrowDayName, matchesDayName, escapeHtml } from '../lib/format.js';
-import { generateScheduleImage } from '../lib/image.js';
+import { generateScheduleImage, generateWeeklyScheduleImage } from '../lib/image.js';
 
 const KEYBOARD = {
   keyboard: [
@@ -222,29 +222,44 @@ export default async function (message, ctx) {
         return;
       }
 
-      // Agar yuklangan asl rasm file_id mavjud bo'lsa, to'g'ridan-to'g'ri rasm qilib yuboramiz
-      if (last.photoFileId) {
-        const groupLabel = last.groupName ? `\n🎓 <b>Guruh:</b> ${escapeHtml(last.groupName)}` : '';
+      const scheduleData = JSON.parse(last.scheduleJson);
+      const groupLabel = last.groupName ? ` — <b>${escapeHtml(last.groupName)}</b>` : '';
+
+      // 1. Haftalik to'liq jadvalni rasm ko'rinishida generatsiya qilib yuborish
+      try {
+        const imageBytes = generateWeeklyScheduleImage(scheduleData);
         await api.sendPhoto({
           chat_id: chatId,
-          photo: last.photoFileId,
-          caption: `📋 <b>To'liq haftalik dars jadvali</b>${groupLabel}`,
+          photo: new InputFile(imageBytes, 'weekly_schedule.png', { type: 'image/png' }),
+          caption: `📋 <b>Haftalik dars jadvali</b>${groupLabel}`,
           parse_mode: 'HTML',
           reply_markup: KEYBOARD,
         });
         return;
+      } catch (imgErr) {
+        console.warn('Haftalik rasm yaratishda xatolik:', imgErr);
+
+        // 2. Agar rasm generatsiyasida xatolik bo'lsa, yuklangan asl fotosuratni yuborish
+        if (last.photoFileId) {
+          await api.sendPhoto({
+            chat_id: chatId,
+            photo: last.photoFileId,
+            caption: `📋 <b>To'liq haftalik dars jadvali</b>${groupLabel}`,
+            parse_mode: 'HTML',
+            reply_markup: KEYBOARD,
+          });
+          return;
+        }
+
+        // 3. Oxirgi chora: matn ko'rinishida yuborish
+        const formatted = formatFullSchedule(scheduleData);
+        await api.sendMessage({
+          chat_id: chatId,
+          text: formatted,
+          parse_mode: 'HTML',
+          reply_markup: KEYBOARD,
+        });
       }
-
-      // Aks holda matn ko'rinishida yuboramiz
-      const scheduleData = JSON.parse(last.scheduleJson);
-      const formatted = formatFullSchedule(scheduleData);
-
-      await api.sendMessage({
-        chat_id: chatId,
-        text: formatted,
-        parse_mode: 'HTML',
-        reply_markup: KEYBOARD,
-      });
     } catch (e) {
       console.error('/schedule error:', e);
       await api.sendMessage({
